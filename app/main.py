@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 from PyQt5.QtCore import QObject, QThread, QUrl, pyqtSignal
-from PyQt5.QtGui import QDesktopServices
+from PyQt5.QtGui import QDesktopServices, QPixmap
 from PyQt5.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -180,12 +180,16 @@ class MainWindow(QMainWindow):
 
         waterfall_group = QGroupBox("Общий водопад")
         self.waterfall_view = QLabel("Превью будет показано после анализа")
+        self.waterfall_view.setMinimumHeight(220)
+        self.waterfall_view.setScaledContents(True)
         waterfall_layout = QVBoxLayout()
         waterfall_layout.addWidget(self.waterfall_view)
         waterfall_group.setLayout(waterfall_layout)
 
         activity_group = QGroupBox("Карта активности")
         self.activity_view = QLabel("Карта появится после обработки")
+        self.activity_view.setMinimumHeight(220)
+        self.activity_view.setScaledContents(True)
         activity_layout = QVBoxLayout()
         activity_layout.addWidget(self.activity_view)
         activity_group.setLayout(activity_layout)
@@ -211,6 +215,8 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.windows_table)
 
         self.window_preview = QLabel("Превью водопада с кластерами")
+        self.window_preview.setMinimumHeight(240)
+        self.window_preview.setScaledContents(True)
         layout.addWidget(self.window_preview)
 
         tab.setLayout(layout)
@@ -235,6 +241,8 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.candidates_table)
 
         self.candidate_preview = QLabel("Предпросмотр спектра/водопада")
+        self.candidate_preview.setMinimumHeight(240)
+        self.candidate_preview.setScaledContents(True)
         layout.addWidget(self.candidate_preview)
 
         tab.setLayout(layout)
@@ -362,8 +370,14 @@ class MainWindow(QMainWindow):
 
         meta_text = "\n".join(f"{k}: {v}" for k, v in self.analysis_results.metadata.items())
         self.meta_view.setPlainText(meta_text)
-        self.waterfall_view.setText(self.analysis_results.waterfall_preview)
-        self.activity_view.setText(self.analysis_results.activity_map)
+        self._set_image(self.waterfall_view, self.analysis_results.waterfall_image, "Нет превью водопада")
+        self._set_image(self.activity_view, self.analysis_results.activity_image, "Нет карты активности")
+        self._set_image(self.window_preview, self.analysis_results.window_preview_image, "Нет превью окон")
+        self._set_image(
+            self.candidate_preview,
+            self.analysis_results.candidate_preview_image,
+            "Нет предпросмотра кандидатов",
+        )
 
         self.windows_table.setRowCount(len(self.analysis_results.window_scores))
         for row, item in enumerate(self.analysis_results.window_scores):
@@ -377,6 +391,16 @@ class MainWindow(QMainWindow):
             self.candidates_table.setItem(row, 1, QTableWidgetItem(item.get("Частота", "")))
             self.candidates_table.setItem(row, 2, QTableWidgetItem(item.get("Статус", "")))
     # endregion
+
+    def _set_image(self, label: QLabel, path: str, fallback: str) -> None:
+        """Update QLabel with an image if available."""
+        if path and Path(path).exists():
+            pixmap = QPixmap(path)
+            label.setPixmap(pixmap)
+            label.setText("")
+        else:
+            label.setPixmap(QPixmap())
+            label.setText(fallback)
 
     # region History helpers
     def _load_history(self) -> list[str]:
