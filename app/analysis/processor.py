@@ -123,8 +123,7 @@ class Analyzer:
     def _generate_cluster_preview(self, path: Path) -> Path:
         """Create a scatter preview for window clusters."""
         rng = np.random.default_rng(42)
-        means = np.array([[0.0, 0.0], [3.0, 3.0], [-3.0, 2.0]])
-        clusters = rng.normal(loc=means[:, None, :], scale=0.6, size=(3, 60, 2))
+        clusters = rng.normal(loc=[0, 3, -3], scale=0.6, size=(3, 60, 2))
         colors = ["tab:blue", "tab:orange", "tab:green"]
         plt.figure(figsize=(5, 4))
         for points, color, label in zip(clusters, colors, ["A", "B", "C"]):
