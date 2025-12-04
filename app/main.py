@@ -60,16 +60,12 @@ class AnalysisWorker(QObject):
         self.analyzer = Analyzer(LOG_FILE)
 
     def run(self) -> None:
-        try:
-            result = self.analyzer.run(
-                self.file_path,
-                self.preset,
-                progress_cb=self.progress.emit,
-                stage_cb=self.stage.emit,
-            )
-        except Exception as exc:  # pragma: no cover - defensive guard
-            logging.exception("Критическая ошибка воркера")
-            result = AnalysisResult(error_message=str(exc))
+        result = self.analyzer.run(
+            self.file_path,
+            self.preset,
+            progress_cb=self.progress.emit,
+            stage_cb=self.stage.emit,
+        )
         self.finished.emit(result)
 
 
@@ -347,13 +343,6 @@ class MainWindow(QMainWindow):
     def _analysis_finished(self, result: AnalysisResult) -> None:
         self.analysis_results = result
         self.analyze_btn.setEnabled(True)
-
-        if result.error_message:
-            self.home_status.setText("Ошибка анализа")
-            QMessageBox.critical(self, "Ошибка анализа", result.error_message)
-            self.status_bar.showMessage(result.error_message, 5000)
-            return
-
         self.home_status.setText("Анализ завершен")
         self._populate_results()
         self.central_tabs.setCurrentIndex(2)

@@ -21,7 +21,6 @@ class AnalysisResult:
     candidate_preview_image: str = ""
     window_scores: List[Dict[str, str]] = field(default_factory=list)
     candidates: List[Dict[str, str]] = field(default_factory=list)
-    error_message: str = ""
 
 
 class Analyzer:
@@ -47,54 +46,50 @@ class Analyzer:
         progress_cb: Callable[[int], None],
         stage_cb: Callable[[str], None],
     ) -> AnalysisResult:
-        try:
-            stages = [
-                "Загрузка файла",
-                "Предобработка",
-                "Формирование водопада",
-                "Кластеризация окон",
-                "Поиск кандидатов",
-                "Запись результатов",
-            ]
-            total = len(stages)
-            preview_dir = Path(self.log_path).parent / "previews"
-            preview_dir.mkdir(parents=True, exist_ok=True)
-            results = AnalysisResult(
-                metadata={
-                    "Имя": Path(file_path).name,
-                    "Размер": "42 MB (демо)",
-                    "Пресет": preset,
-                },
-                waterfall_image=self._safe_heatmap(preview_dir / "waterfall.png", "Общий водопад"),
-                activity_image=self._safe_activity_map(preview_dir / "activity.png"),
-                window_preview_image=self._safe_cluster_preview(preview_dir / "windows.png"),
-                candidate_preview_image=self._safe_candidate_preview(preview_dir / "candidates.png"),
-                window_scores=[
-                    {"Окно": f"{i:03d}", "Рейтинг": f"{90 - i}%", "Кластер": "A"}
-                    for i in range(5)
-                ],
-                candidates=[
-                    {
-                        "ID": f"C-{i:02d}",
-                        "Частота": f"{1420 + i * 0.5} MHz",
-                        "Статус": "RFI" if i % 2 == 0 else "Интересно",
-                    }
-                    for i in range(8)
-                ],
-            )
+        stages = [
+            "Загрузка файла",
+            "Предобработка",
+            "Формирование водопада",
+            "Кластеризация окон",
+            "Поиск кандидатов",
+            "Запись результатов",
+        ]
+        total = len(stages)
+        preview_dir = Path(self.log_path).parent / "previews"
+        preview_dir.mkdir(parents=True, exist_ok=True)
+        results = AnalysisResult(
+            metadata={
+                "Имя": Path(file_path).name,
+                "Размер": "42 MB (демо)",
+                "Пресет": preset,
+            },
+            waterfall_image=str(self._generate_heatmap(preview_dir / "waterfall.png", "Общий водопад")),
+            activity_image=str(self._generate_activity_map(preview_dir / "activity.png")),
+            window_preview_image=str(self._generate_cluster_preview(preview_dir / "windows.png")),
+            candidate_preview_image=str(self._generate_candidate_preview(preview_dir / "candidates.png")),
+            window_scores=[
+                {"Окно": f"{i:03d}", "Рейтинг": f"{90 - i}%", "Кластер": "A"}
+                for i in range(5)
+            ],
+            candidates=[
+                {
+                    "ID": f"C-{i:02d}",
+                    "Частота": f"{1420 + i * 0.5} MHz",
+                    "Статус": "RFI" if i % 2 == 0 else "Интересно",
+                }
+                for i in range(8)
+            ],
+        )
 
-            for index, stage in enumerate(stages, start=1):
-                self.logger.info("%s: %s", stage, file_path)
-                stage_cb(stage)
-                self._simulate_work(progress_cb, index, total)
+        for index, stage in enumerate(stages, start=1):
+            self.logger.info("%s: %s", stage, file_path)
+            stage_cb(stage)
+            self._simulate_work(progress_cb, index, total)
 
-            progress_cb(100)
-            stage_cb("Готово")
-            self.logger.info("Анализ завершен для %s", file_path)
-            return results
-        except Exception as exc:  # pragma: no cover - defensive logging
-            self.logger.exception("Ошибка анализа %s", file_path)
-            return AnalysisResult(error_message=str(exc))
+        progress_cb(100)
+        stage_cb("Готово")
+        self.logger.info("Анализ завершен для %s", file_path)
+        return results
 
     def _generate_heatmap(self, path: Path, title: str) -> Path:
         """Create a fake waterfall image."""
@@ -128,11 +123,7 @@ class Analyzer:
     def _generate_cluster_preview(self, path: Path) -> Path:
         """Create a scatter preview for window clusters."""
         rng = np.random.default_rng(42)
-        means = np.array([[0.0, 0.0], [3.0, 3.0], [-3.0, 2.0]])
-        clusters = []
-        for mean in means:
-            cluster_points = rng.normal(loc=mean, scale=0.6, size=(60, 2))
-            clusters.append(cluster_points)
+        clusters = rng.normal(loc=[0, 3, -3], scale=0.6, size=(3, 60, 2))
         colors = ["tab:blue", "tab:orange", "tab:green"]
         plt.figure(figsize=(5, 4))
         for points, color, label in zip(clusters, colors, ["A", "B", "C"]):
@@ -176,33 +167,3 @@ class Analyzer:
             time.sleep(0.2)
             increment = start_percent + int(((i + 1) / steps) * (end_percent - start_percent))
             progress_cb(increment)
-
-    # region safe wrappers
-    def _safe_heatmap(self, path: Path, title: str) -> str:
-        try:
-            return str(self._generate_heatmap(path, title))
-        except Exception as exc:  # pragma: no cover - defensive
-            self.logger.exception("Не удалось построить водопад")
-            return ""
-
-    def _safe_activity_map(self, path: Path) -> str:
-        try:
-            return str(self._generate_activity_map(path))
-        except Exception as exc:  # pragma: no cover - defensive
-            self.logger.exception("Не удалось построить карту активности")
-            return ""
-
-    def _safe_cluster_preview(self, path: Path) -> str:
-        try:
-            return str(self._generate_cluster_preview(path))
-        except Exception as exc:  # pragma: no cover - defensive
-            self.logger.exception("Не удалось построить превью кластеров")
-            return ""
-
-    def _safe_candidate_preview(self, path: Path) -> str:
-        try:
-            return str(self._generate_candidate_preview(path))
-        except Exception as exc:  # pragma: no cover - defensive
-            self.logger.exception("Не удалось построить превью кандидатов")
-            return ""
-    # endregion
